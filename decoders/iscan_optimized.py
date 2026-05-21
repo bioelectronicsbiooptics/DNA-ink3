@@ -1,3 +1,52 @@
+# =============================================================================
+# Figure 5 — Scalable Optimization System (알고리즘 최적화 스택)
+# =============================================================================
+# [HEADLINE RESULT]
+#   J6 : 109 s → 3.9 s  (28× 속도 향상, 실측)
+#   J7 : 250 s → 17.5 s (14× 속도 향상, 실측)
+#   Tripitaka ~23 min → ~1–2 min (추정, 실측 대기)
+#   GPU 미사용 — 순수 알고리즘/데이터 레이아웃 최적화만으로 달성.
+#
+# [OPTIMIZATION STACK (실측 per-layer speedup)]
+#   (1) NumPy Vectorization
+#        PrimerSort   11×  (for-loop → argsort 그룹핑)
+#        KeyFind      122× (for-loop → sliding-window 벡터화)
+#        Consensus    73×  (for-loop → np.unique + indexing)
+#        Evert        10×  (for-loop → boolean mask 교체)
+#        NullFind     16×  (for-loop → searchsorted)
+#   (2) uint8 Pipeline
+#        Binarization 71×  (chr() 변환 제거, ord → uint8 바로)
+#   (3) reedsolo RS (galois 대체)
+#        RS Decoding  175× (lookup-table GF)
+#   (4) Numba JIT
+#        Binarization +53× 추가 (@numba.jit 데코레이터)
+#   (5) mmap FASTQ Loading
+#        FASTQ load   7×   (Bio.SeqIO.parse → mmap bulk extract)
+#
+# [VECTORIZATION MAP] 본 파일에서 "for 루프 없애고" 처리된 핵심 지점:
+#   _seqs_to_matrix()        L125–L144  — np.frombuffer bulk encode (문자열→uint8 행렬, 루프 제거)
+#   _vectorized_dna_to_binary() L172–L178 — uint8 슬라이스 전체 이진 변환 (열별 루프 제거)
+#   _vectorized_primer_match()  L180–L185 — np.frombuffer + 행렬 비교 (프라이머 매칭 루프 제거)
+#   ReverseEvert()           L318–L407  — np.where 불리언 마스크 + 행렬 슬라이스 (seq 순회 루프 제거)
+#   PrimerSort()             L409–L434  — _vectorized_primer_match 으로 per-read 루프 제거 (11×)
+#   KeyFind()                L436–L534  — uint8 payload 슬라이스 + 마스크 인덱싱 (122× 슬라이딩 윈도우 벡터화)
+#   Consensus()              L607–L661  — np.argsort + np.searchsorted 그룹핑 (73×, chr 변환 없음)
+#   _binarize_mode_jit()     L663–L696  — @numba.jit(nopython=True) 열별 mode 계산 (53× 추가)
+#   Binarization()           L698–L735  — uint8에서 직접 DNA_TO_IDX → BIT_TABLE (71×)
+#   RSdecoding()             L746–L783  — reedsolo lookup-table GF 배치 디코딩 (175×)
+#   NullFind()               L823–L1005 — np.frombuffer + np.searchsorted 패턴 매칭 (16×)
+#   _read_fastq_mmap()       L1427–L1441 — mmap bulk read + np.frombuffer reshape (7×, Biopython 제거)
+#
+# [FILES]
+#   dna_decode_260328_0125.py (이 파일)  — 헤드라인 28× 버전
+#   dna_decode_260328_0132.py             — 대용량 추가 최적화 (Tripitaka ~1 min 지향, numba prange 16코어)
+#
+# [NOT OPTIMIZED YET]
+#   - GPU 커널 (불필요하다고 판단 — 알고리즘 스택으로 충분)
+#   - 다운샘플링×최적화 복합 (×13 클레임 미검증 — Figure3 병합 필요)
+#   - patch 병렬화×최적화 복합 (×2–3 클레임 미검증 — Figure4 병합 필요)
+# =============================================================================
+
 #!/usr/bin/env python3
 """
 DNA Decoding Pipeline (iSCAN Protocol) - MATLAB to Python Conversion
@@ -1485,7 +1534,7 @@ def main():
     # 데이터셋별 FASTQ 파일명 매핑
     FASTQ_FILES = {
         'Jikji4': [('4_S2_L001_R1_001.fastq', '4_S2_L001_R2_001.fastq')],
-        'Jikji6': [('J6.fastq',)],  # 단일 파일 (paired-end 아님)
+        'Jikji6': [('Jikji6_1.fastq', 'Jikji6_2.fastq')],  # paired
         'Jikji7': [('jikji-7_S1_L001_R1_001.fastq.gz', 'jikji-7_S1_L001_R2_001.fastq.gz')],
         'venus': [
             ('Venus1_R1.fastq', 'Venus1_R2.fastq'),
