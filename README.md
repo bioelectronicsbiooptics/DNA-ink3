@@ -3,7 +3,7 @@
 Implementation of the paper:
 **"High data-density, high decoding-speed, and high decoding-accuracy DNA data ink for digital preservation — iSCAN3 optimization stack"** *(in preparation, target: Briefings in Bioinformatics, 2026)*
 
-A position-based DNA data-storage decoder that replaces *de novo* sequence alignment with a localized index-scan, combined with a four-layer algorithmic optimization stack (NumPy vectorization → uint8 byte-level encoding → lookup-table GF(2⁸) Reed–Solomon → Numba JIT consensus). Achieves **28× end-to-end speed-up over the MATLAB reference** on the Jikji 6 payload (109 s → 3.9 s) while preserving 100 % bit-for-bit reconstruction.
+A position-based DNA data-storage decoder that replaces *de novo* sequence alignment with a localized index-scan, combined with a four-layer algorithmic optimization stack (NumPy vectorization → uint8 byte-level encoding → lookup-table GF(2⁸) Reed–Solomon → Numba JIT consensus). Achieves **28× end-to-end speed-up** over the MATLAB reference on the Jikji 6 payload (109 s → 3.9 s) while preserving 100 % bit-for-bit reconstruction.
 
 ---
 
@@ -48,9 +48,9 @@ A position-based DNA data-storage decoder that replaces *de novo* sequence align
 
 ---
 
-## Decoder family (decoders/)
+## Decoder family (`decoders/`)
 
-Six decoder variants, one per manuscript section, all sharing the same iSCAN 4-stage skeleton:
+Six Python variants, one per manuscript section, all sharing the same iSCAN 4-stage skeleton:
 
 | File | § | Role |
 |---|---|---|
@@ -58,10 +58,10 @@ Six decoder variants, one per manuscript section, all sharing the same iSCAN 4-s
 | `decoders/downsampling_sweep.py` | §3 (3a) | Drives the baseline over a range of coverage targets (×1421 → ×20). Produces the per-ratio time/accuracy curve. |
 | `decoders/downsampling_n100.py` | §3 (3b/3c) | Single ratio × N=100 seeds for statistical confidence intervals behind the "×504 / 2.47 s / 100 % reconstruction" claim. |
 | `decoders/patch_front_batch.py` | §4 (Option 1) | Patch-based decoder with front-load schedule (parse full FASTQ → partition → dispatch). Lower latency. |
-| `decoders/patch_streaming.py` | §4 (Option 2) | Patch-based decoder with streaming schedule (mmap chunk → route to patch worker). Near-constant peak RAM. |
-| `decoders/iscan_optimized.py` | §5 | Baseline + four-layer optimization stack (NumPy / uint8 / LUT-RS / Numba JIT). Produces the **headline 109 s → 3.9 s (28×)** result. |
+| `decoders/patch_streaming.py` | §4 (Option 2) | Patch-based decoder with mmap streaming schedule. Near-constant peak RAM (bounded by chunk, not file size). |
+| `decoders/iscan_optimized.py` | §5 | Baseline + four-layer optimization stack (NumPy / uint8 / LUT-RS / Numba JIT). Produces the **headline 109 s → 3.9 s (28×)** result on Jikji 6. |
 
-See `decoders/README.md` for the full narrative chain and per-variant CLI examples.
+See [`decoders/README.md`](decoders/README.md) for the full narrative chain and per-variant CLI examples.
 
 ---
 
@@ -73,15 +73,14 @@ See `decoders/README.md` for the full narrative chain and per-variant CLI exampl
 | Jikji 7 | — | 1,339 | 250 s | 17.5 s | 14× |
 | Tripitaka Koreana | 16.6 MB | 92,626 | ~23 min | ~1–2 min | ≥10× |
 
-Down-sampling (×5.33, mean coverage ×2,686 → ×504): J4 34.5 s → **2.47 s** (14×) at 100 % accuracy, NGS cost reduced ~80 %.
-
-Patch-based parallel decoding: index match-rate **99.87 %** at ×504 mean coverage; Tripitaka 92,626-oligo payload partitioned into 10 patches reduces wall-clock from ~23 min to ~3 min on a 10-core CPU.
+- **Down-sampling** (×5.33, mean coverage ×2,686 → ×504): J4 34.5 s → **2.47 s** (14×) at 100 % accuracy, NGS cost reduced ~80 %.
+- **Patch-based parallel decoding**: index match-rate **99.87 %** at ×504 mean coverage; Tripitaka (92,626 oligos) partitioned into 10 patches reduces wall-clock from ~23 min to ~3 min on a 10-core CPU.
 
 ---
 
 ## Datasets
 
-Thirteen cultural-heritage DNA-data-storage payloads (NCBI BioProject **PRJNA1091804**):
+Thirteen cultural-heritage DNA-data-storage payloads, all hosted at NCBI BioProject **[PRJNA1091804](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA1091804)**:
 
 | Object group | Code names | Oligo range |
 |---|---|---|
@@ -91,7 +90,7 @@ Thirteen cultural-heritage DNA-data-storage payloads (NCBI BioProject **PRJNA109
 | Tripitaka Koreana | `tripitaka` | 92,626 |
 | Overhang chemistry variant | `J6_OH` (SRR33084752) | — |
 
-The full FASTQ collection (≈ 230 GB) is hosted at NCBI; a small reproducible slice for smoke testing lives in `example_data/`.
+Raw FASTQ files (≈ 230 GB total) are **not redistributed** through this repository — fetch them directly from NCBI SRA.
 
 ---
 
@@ -104,24 +103,14 @@ DNA-ink3/
 ├── pyproject.toml                     # Python dependencies + metadata
 ├── .gitignore
 │
-├── decoders/                          # Decoder family — six §-aligned variants
-│   ├── README.md                      # Per-file narrative + CLI examples
-│   ├── iscan_baseline.py              # §1 — pure positional decoder
-│   ├── downsampling_sweep.py          # §3 — coverage sweep
-│   ├── downsampling_n100.py           # §3 — N=100 seeded trials
-│   ├── patch_front_batch.py           # §4 — front-load patch decoder
-│   ├── patch_streaming.py             # §4 — streaming patch decoder
-│   └── iscan_optimized.py             # §5 — 4-layer optimization stack (28×)
-│
-├── matlab_ref/                        # MATLAB R2022a reference (v240108)
-│   └── Single_Decoding_Time.m
-│
-├── Manuscript_Drafts_v2/              # Manuscript artifacts
-│   ├── 260521_Methods.md              # Methods section draft
-│   └── Manuscript_Full_Compiled_v15.md
-│
-└── example_data/                      # Small reproducible slice for CI / tutorials
-    └── README.md                      # Layout + populate instructions
+└── decoders/                          # Decoder family — six §-aligned variants
+    ├── README.md                      # Per-file narrative + CLI examples
+    ├── iscan_baseline.py              # §1 — pure positional decoder
+    ├── downsampling_sweep.py          # §3 — coverage sweep
+    ├── downsampling_n100.py           # §3 — N=100 seeded trials
+    ├── patch_front_batch.py           # §4 — front-load patch decoder
+    ├── patch_streaming.py             # §4 — streaming patch decoder
+    └── iscan_optimized.py             # §5 — 4-layer optimization stack (28×)
 ```
 
 ---
@@ -129,7 +118,6 @@ DNA-ink3/
 ## Requirements
 
 - **Python** ≥ 3.10 (3.14 recommended; tested on macOS arm64 / Linux x86_64)
-- **MATLAB** ≥ R2022a (only required to reproduce the reference baseline in `matlab_ref/`)
 - **GCC / Clang** with C99 support (for Numba native compilation)
 
 Core Python dependencies (full list in `pyproject.toml`):
@@ -138,13 +126,11 @@ Core Python dependencies (full list in `pyproject.toml`):
 |---|---|---|
 | numpy | 2.3 | Whole-array vectorization (Layer 1) |
 | pandas | 2.3 | Per-dataset aggregation tables |
-| matplotlib | 3.10 | Figure rendering (Agg backend) |
 | biopython | 1.85 | FASTQ I/O |
 | reedsolo | 1.7 | GF(2⁸) lookup-table Reed–Solomon (Layer 3) |
 | numba | 0.60 | JIT consensus loop (Layer 4) |
 | scipy | 1.16 | Statistical helpers |
 | trimesh | 4.11 | STL re-export and mesh diff |
-| xlsxwriter | 3.2 | Per-stage timing tables |
 
 ---
 
@@ -172,9 +158,8 @@ The first import of `decoders/iscan_optimized.py` triggers a one-time Numba JIT 
 ## Usage
 
 ```bash
-# §1 — baseline iSCAN on a single FASTQ pair
-python decoders/iscan_baseline.py --r1 example_data/J6_R1.example.fastq \
-                                   --r2 example_data/J6_R2.example.fastq
+# §1 — baseline iSCAN on a paired FASTQ
+python decoders/iscan_baseline.py --r1 Jikji6_R1.fastq --r2 Jikji6_R2.fastq
 
 # §3a — coverage sweep
 python decoders/downsampling_sweep.py --targets 1421,500,100,20
@@ -190,19 +175,9 @@ python decoders/patch_streaming.py --chunk 50000 --patches 10 --workers 10
 
 # §5 — 4-layer optimized decoder (28× headline)
 python decoders/iscan_optimized.py --dataset Jikji6 --full
-
-# MATLAB reference cross-check
-matlab -batch "addpath('matlab_ref'); run_smoke_all"
 ```
 
-See `decoders/README.md` for the full per-variant narrative.
-
----
-
-## Verification
-
-- Python and MATLAB pipelines agree on all 13 public payloads to **bit-for-bit STL identity** (last verified 2026-05-07).
-- A minimal smoke test (`example_data/`, ≈ 1,000 reads, runs in < 1 s) is exercised on every commit.
+See [`decoders/README.md`](decoders/README.md) for the full per-variant narrative.
 
 ---
 

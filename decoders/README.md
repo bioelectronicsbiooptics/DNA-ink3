@@ -2,8 +2,6 @@
 
 Six Python decoder variants used to produce the §1 / §3 / §4 / §5 results of the manuscript. All variants share the same iSCAN 4-stage skeleton (primer sorting → KIS detection → index clustering → consensus + RS/XOR); the differences are which **decoding stage** or **experimental knob** each variant exposes.
 
-A MATLAB reference decoder is provided separately under `../matlab_ref/`.
-
 ---
 
 ## File map
@@ -66,9 +64,9 @@ Concrete dataset paths and the small reproducible slice for CI live in `../examp
 
 ---
 
-## What is *not* in this folder
+## What is *not* in this repository
 
-- **MATLAB reference** (`../matlab_ref/Single_Decoding_Time.m`) — used to establish the numerical baseline that the Python variants reproduce bit-for-bit.
-- **GPU stretch variant** (`dna_decode_260508_OptB_GPU_NullOpt_EvertOpt.py`) — Apple Silicon CPU+GPU heterogeneous prototype, withheld from this release until the V15 G-series end-to-end timings are finalised. The §5 manuscript text describes the algorithmic stack only; GPU is reported as a "potential additional layer" but not relied upon for the headline 28× number.
+- **GPU stretch variant** (`dna_decode_260508_OptB_GPU_NullOpt_EvertOpt.py`) — Apple Silicon CPU+GPU heterogeneous prototype, withheld until the V15 G-series end-to-end timings are finalised. The §5 manuscript text describes the algorithmic stack only; GPU is reported as a "potential additional layer" but not relied upon for the headline 28× number.
 - **Figure-generation code** (SVG fillers, Excel aggregators) — intentionally excluded: this repository carries only the decoding pipeline, not the manuscript figure factory.
+- **MATLAB reference pipeline** — the v240108 reference decoder used to establish numerical parity is hosted with the companion wet-lab paper at [bioelectronicsbiooptics/3D-Culture-Heritage](https://github.com/bioelectronicsbiooptics/3D-Culture-Heritage); this repository carries the Python iSCAN3 stack only.
 - **Raw sequencing data** — deposited at NCBI BioProject **PRJNA1091804**, not redistributed here.
