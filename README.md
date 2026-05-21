@@ -88,7 +88,6 @@ Thirteen cultural-heritage DNA-data-storage payloads, all hosted at NCBI BioProj
 | Seokgatap pagoda | `seokga` | 2,586 |
 | Cultural landmarks | `goldengate`, `pisa`, `liberty`, `venus` | 35,464 – 63,952 |
 | Tripitaka Koreana | `tripitaka` | 92,626 |
-| Overhang chemistry variant | `J6_OH` (SRR33084752) | — |
 
 Raw FASTQ files (≈ 230 GB total) are **not redistributed** through this repository — fetch them directly from NCBI SRA.
 
