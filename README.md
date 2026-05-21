@@ -100,7 +100,6 @@ Raw FASTQ files (≈ 230 GB total) are **not redistributed** through this reposi
 DNA-ink3/
 ├── README.md                          # this file
 ├── LICENSE                            # MIT
-├── pyproject.toml                     # Python dependencies + metadata
 ├── .gitignore
 │
 └── decoders/                          # Decoder family — six §-aligned variants
@@ -120,7 +119,7 @@ DNA-ink3/
 - **Python** ≥ 3.10 (3.14 recommended; tested on macOS arm64 / Linux x86_64)
 - **GCC / Clang** with C99 support (for Numba native compilation)
 
-Core Python dependencies (full list in `pyproject.toml`):
+Python dependencies:
 
 | Package | Min version | Role |
 |---|---|---|
@@ -132,26 +131,16 @@ Core Python dependencies (full list in `pyproject.toml`):
 | scipy | 1.16 | Statistical helpers |
 | trimesh | 4.11 | STL re-export and mesh diff |
 
----
-
-## Installation
+Quick install in a fresh virtual environment:
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/bioelectronicsbiooptics/DNA-ink3.git
 cd DNA-ink3
-
-# 2. Create and activate a virtual environment
-#    --- option A: uv (recommended, byte-level reproducible) ---
-uv sync
-
-#    --- option B: pip / venv ---
-python -m venv .venv
-source .venv/bin/activate     # Linux/macOS
-pip install -e .
+python -m venv .venv && source .venv/bin/activate
+pip install numpy pandas biopython reedsolo numba scipy trimesh
 ```
 
-The first import of `decoders/iscan_optimized.py` triggers a one-time Numba JIT compile (≈ 8 s) and a 64 KB GF(2⁸) lookup-table precompute (instantaneous); both are cached on disk and re-used on every subsequent run.
+The first run of `decoders/iscan_optimized.py` triggers a one-time Numba JIT compile (≈ 8 s) and a 64 KB GF(2⁸) lookup-table precompute (instantaneous); both are cached on disk and re-used on every subsequent run.
 
 ---
 
