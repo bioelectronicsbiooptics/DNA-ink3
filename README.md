@@ -54,12 +54,12 @@ Six Python variants, one per manuscript section, all sharing the same iSCAN 4-st
 
 | File | § | Role |
 |---|---|---|
-| `decoders/iscan_baseline.py` | §1 | Pure positional 4-stage decoder (no optimization layers). Reference validator used to generate v8_11 results across 13 datasets. |
-| `decoders/downsampling_sweep.py` | §3 (3a) | Drives the baseline over a range of coverage targets (×1421 → ×20). Produces the per-ratio time/accuracy curve. |
-| `decoders/downsampling_n100.py` | §3 (3b/3c) | Single ratio × N=100 seeds for statistical confidence intervals behind the "×504 / 2.47 s / 100 % reconstruction" claim. |
-| `decoders/patch_front_batch.py` | §4 (Option 1) | Patch-based decoder with front-load schedule (parse full FASTQ → partition → dispatch). Lower latency. |
-| `decoders/patch_streaming.py` | §4 (Option 2) | Patch-based decoder with mmap streaming schedule. Near-constant peak RAM (bounded by chunk, not file size). |
-| `decoders/iscan_optimized.py` | §5 | Baseline + four-layer optimization stack (NumPy / uint8 / LUT-RS / Numba JIT). Produces the **headline 109 s → 3.9 s (28×)** result on Jikji 6. |
+| `decoders/dna_decode_baseline_260507_Final.py` | §1 | Pure positional 4-stage decoder (no optimization layers). Reference validator used to generate v8_11 results across 13 datasets. |
+| `decoders/run_downsampling_experiment.py` | §3 (3a) | Drives the baseline over a range of coverage targets (×1421 → ×20). Produces the per-ratio time/accuracy curve. |
+| `decoders/run_downsampling_n100.py` | §3 (3b/3c) | Single ratio × N=100 seeds for statistical confidence intervals behind the "×504 / 2.47 s / 100 % reconstruction" claim. |
+| `decoders/Option1_front_batch_decode_260508.py` | §4 (Option 1) | Patch-based decoder with front-load schedule (parse full FASTQ → partition → dispatch). Lower latency. |
+| `decoders/Option2_streaming_batch_decode_260508.py` | §4 (Option 2) | Patch-based decoder with mmap streaming schedule. Near-constant peak RAM (bounded by chunk, not file size). |
+| `decoders/dna_decode_260328_0125.py` | §5 | Baseline + four-layer optimization stack (NumPy / uint8 / LUT-RS / Numba JIT). Produces the **headline 109 s → 3.9 s (28×)** result on Jikji 6. |
 
 See [`decoders/README.md`](decoders/README.md) for the full narrative chain and per-variant CLI examples.
 
@@ -103,12 +103,12 @@ DNA-ink3/
 │
 └── decoders/                          # Decoder family — six §-aligned variants
     ├── README.md                      # Per-file narrative + CLI examples
-    ├── iscan_baseline.py              # §1 — pure positional decoder
-    ├── downsampling_sweep.py          # §3 — coverage sweep
-    ├── downsampling_n100.py           # §3 — N=100 seeded trials
-    ├── patch_front_batch.py           # §4 — front-load patch decoder
-    ├── patch_streaming.py             # §4 — streaming patch decoder
-    └── iscan_optimized.py             # §5 — 4-layer optimization stack (28×)
+    ├── dna_decode_baseline_260507_Final.py              # §1 — pure positional decoder
+    ├── run_downsampling_experiment.py          # §3 — coverage sweep
+    ├── run_downsampling_n100.py           # §3 — N=100 seeded trials
+    ├── Option1_front_batch_decode_260508.py           # §4 — front-load patch decoder
+    ├── Option2_streaming_batch_decode_260508.py             # §4 — streaming patch decoder
+    └── dna_decode_260328_0125.py             # §5 — 4-layer optimization stack (28×)
 ```
 
 ---
@@ -139,7 +139,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install numpy pandas biopython reedsolo numba scipy trimesh
 ```
 
-The first run of `decoders/iscan_optimized.py` triggers a one-time Numba JIT compile (≈ 8 s) and a 64 KB GF(2⁸) lookup-table precompute (instantaneous); both are cached on disk and re-used on every subsequent run.
+The first run of `decoders/dna_decode_260328_0125.py` triggers a one-time Numba JIT compile (≈ 8 s) and a 64 KB GF(2⁸) lookup-table precompute (instantaneous); both are cached on disk and re-used on every subsequent run.
 
 ---
 
@@ -147,22 +147,22 @@ The first run of `decoders/iscan_optimized.py` triggers a one-time Numba JIT com
 
 ```bash
 # §1 — baseline iSCAN on a paired FASTQ
-python decoders/iscan_baseline.py --r1 Jikji6_R1.fastq --r2 Jikji6_R2.fastq
+python decoders/dna_decode_baseline_260507_Final.py --r1 Jikji6_R1.fastq --r2 Jikji6_R2.fastq
 
 # §3a — coverage sweep
-python decoders/downsampling_sweep.py --targets 1421,500,100,20
+python decoders/run_downsampling_experiment.py --targets 1421,500,100,20
 
 # §3b/c — single ratio, 100 seeded trials (statistics)
-python decoders/downsampling_n100.py --n 100 --ratio 0.18762
+python decoders/run_downsampling_n100.py --n 100 --ratio 0.18762
 
 # §4 (Option 1) — front-load patch decoding
-python decoders/patch_front_batch.py --patches 10 --workers 10
+python decoders/Option1_front_batch_decode_260508.py --patches 10 --workers 10
 
 # §4 (Option 2) — streaming patch decoding
-python decoders/patch_streaming.py --chunk 50000 --patches 10 --workers 10
+python decoders/Option2_streaming_batch_decode_260508.py --chunk 50000 --patches 10 --workers 10
 
 # §5 — 4-layer optimized decoder (28× headline)
-python decoders/iscan_optimized.py --dataset Jikji6 --full
+python decoders/dna_decode_260328_0125.py --dataset Jikji6 --full
 ```
 
 See [`decoders/README.md`](decoders/README.md) for the full per-variant narrative.
