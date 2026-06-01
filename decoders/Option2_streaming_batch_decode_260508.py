@@ -62,10 +62,51 @@ from dna_decode_baseline_260507_Final import (  # noqa: E402
 # CONFIG
 # =============================================================================
 
+DATA_ROOT = '/Users/taeseokkang/Desktop/DNA ink3/3D culture heritage seq data'
+
+
+def resolve_dataset(filename):
+    """Map dataset short-name -> (R1_path, R2_path). Mirrors baseline logic."""
+    if filename in ('Jikji1', 'Jikji2', 'Jikji3', 'Jikji4', 'Jikji5', 'Jikji6', 'Jikji7'):
+        folder = 'Jikji'
+        r1 = os.path.join(DATA_ROOT, folder, f'{filename}_1.fastq')
+        r2 = os.path.join(DATA_ROOT, folder, f'{filename}_2.fastq')
+    elif filename in ('J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7'):
+        folder = 'Jikji'
+        n = filename[1:]
+        r1 = os.path.join(DATA_ROOT, folder, f'Jikji{n}_1.fastq')
+        r2 = os.path.join(DATA_ROOT, folder, f'Jikji{n}_2.fastq')
+    elif filename == 'tripitaka':
+        folder = 'Tripitaka_extracted'
+        r1 = os.path.join(DATA_ROOT, folder, 'tripitaka_1.fastq')
+        r2 = os.path.join(DATA_ROOT, folder, 'tripitaka_2.fastq')
+    elif filename == 'liberty':
+        folder = 'Statue of Liberty'
+        r1 = os.path.join(DATA_ROOT, folder, 'liberty_1.fastq')
+        r2 = os.path.join(DATA_ROOT, folder, 'liberty_2.fastq')
+    elif filename == 'pisa':
+        folder = 'Tower of Pisa'
+        r1 = os.path.join(DATA_ROOT, folder, 'pisa_1.fastq')
+        r2 = os.path.join(DATA_ROOT, folder, 'pisa_2.fastq')
+    elif filename == 'seokga':
+        folder = 'seokgatap'
+        r1 = os.path.join(DATA_ROOT, folder, 'seokga_1.fastq')
+        r2 = os.path.join(DATA_ROOT, folder, 'seokga_2.fastq')
+    elif filename == 'venus':
+        folder = 'Venus Statue'
+        r1 = os.path.join(DATA_ROOT, folder, 'V_1.fastq')
+        r2 = os.path.join(DATA_ROOT, folder, 'V_2.fastq')
+    elif filename == 'goldengate':
+        folder = 'Golden gate'
+        r1 = os.path.join(DATA_ROOT, folder, 'goldengate_1.fastq')
+        r2 = os.path.join(DATA_ROOT, folder, 'goldengate_2.fastq')
+    else:
+        raise ValueError(f"Unknown dataset: {filename!r}")
+    return r1, r2
+
+
 FILENAME = 'Jikji6'
-DATA_ROOT = '/Users/young/Desktop/DNA ink3/3D culture heritage seq data'
-R1_PATH = os.path.join(DATA_ROOT, 'Jikji', 'Jikji6_1.fastq')
-R2_PATH = os.path.join(DATA_ROOT, 'Jikji', 'Jikji6_2.fastq')
+R1_PATH, R2_PATH = resolve_dataset(FILENAME)
 
 OUTPUT_DIR = os.path.join(HERE, 'Outputs', 'option2_streaming_260508')
 
@@ -326,6 +367,10 @@ def decode_full(seq, filename):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument('dataset', nargs='?', default='Jikji6',
+                    help='Dataset name (default: Jikji6). '
+                         'Supported: Jikji1..7, J1..J7, tripitaka, liberty, '
+                         'pisa, seokga, venus, goldengate.')
     ap.add_argument('--batch-reads', type=int, default=DEFAULT_BATCH_READS,
                     help='Reads per streaming batch (default 2000 ≈ 8000 lines).')
     ap.add_argument('--max-batches', type=int, default=DEFAULT_MAX_BATCHES,
@@ -338,18 +383,26 @@ def main():
                     action='store_false',
                     help='Continue accumulating beyond first success (collects '
                          'time scaling data).')
-    ap.add_argument('--gold-vf', type=str, default='434,864',
+    ap.add_argument('--gold-vf', type=str, default='',
                     help='Comma-separated "V,F" the mesh must match before we '
                          'count a decode as truly successful. At very low read '
                          'counts the cascade can produce non-exception meshes '
-                         'with wrong vertex counts (e.g. 433/864 at 2k reads). '
-                         'Set "" to disable this check. Default 434/864 = J6 gold.')
+                         'with wrong vertex counts. Empty string (default) '
+                         'disables the check; the cascade-success boolean alone '
+                         'is then trusted.')
     ap.add_argument('--output-dir', type=str, default=OUTPUT_DIR)
     args = ap.parse_args()
+
+    # Resolve dataset paths
+    global FILENAME, R1_PATH, R2_PATH
+    FILENAME = args.dataset
+    R1_PATH, R2_PATH = resolve_dataset(FILENAME)
 
     print('=' * 78)
     print('Figure 4 Option 2 — FASTQ line-streamed batched decoding')
     print(f'  dataset      : {FILENAME}')
+    print(f'  R1           : {R1_PATH}')
+    print(f'  R2           : {R2_PATH}')
     print(f'  batch_reads  : {args.batch_reads:,}  (lines per batch ≈ '
           f'{args.batch_reads * 4:,} for 4-line FASTQ records)')
     print(f'  max_batches  : {args.max_batches:,}')
