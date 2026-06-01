@@ -1518,12 +1518,53 @@ def main():
     # =========================================================================
     # 설정 (CLI 인자 또는 기본값)
     # =========================================================================
-    filename = sys.argv[1] if len(sys.argv) > 1 else 'Jikji7'
-    data_dir = sys.argv[2] if len(sys.argv) > 2 else '.'
+    filename = sys.argv[1] if len(sys.argv) > 1 else 'Jikji6'
     Timecell = {}
 
+    DATA_ROOT = '/Users/taeseokkang/Desktop/DNA ink3/3D culture heritage seq data'
+
+    # =========================================================================
+    # Dataset -> paired FASTQ resolution (mirrors baseline decoder).
+    # =========================================================================
+    if filename in ('Jikji1', 'Jikji2', 'Jikji3', 'Jikji4', 'Jikji5', 'Jikji6', 'Jikji7'):
+        folder = 'Jikji'
+        r1_path = os.path.join(DATA_ROOT, folder, f'{filename}_1.fastq')
+        r2_path = os.path.join(DATA_ROOT, folder, f'{filename}_2.fastq')
+    elif filename in ('J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7'):
+        folder = 'Jikji'
+        n = filename[1:]
+        r1_path = os.path.join(DATA_ROOT, folder, f'Jikji{n}_1.fastq')
+        r2_path = os.path.join(DATA_ROOT, folder, f'Jikji{n}_2.fastq')
+    elif filename == 'tripitaka':
+        folder = 'Tripitaka_extracted'
+        r1_path = os.path.join(DATA_ROOT, folder, 'tripitaka_1.fastq')
+        r2_path = os.path.join(DATA_ROOT, folder, 'tripitaka_2.fastq')
+    elif filename == 'liberty':
+        folder = 'Statue of Liberty'
+        r1_path = os.path.join(DATA_ROOT, folder, 'liberty_1.fastq')
+        r2_path = os.path.join(DATA_ROOT, folder, 'liberty_2.fastq')
+    elif filename == 'pisa':
+        folder = 'Tower of Pisa'
+        r1_path = os.path.join(DATA_ROOT, folder, 'pisa_1.fastq')
+        r2_path = os.path.join(DATA_ROOT, folder, 'pisa_2.fastq')
+    elif filename == 'seokga':
+        folder = 'seokgatap'
+        r1_path = os.path.join(DATA_ROOT, folder, 'seokga_1.fastq')
+        r2_path = os.path.join(DATA_ROOT, folder, 'seokga_2.fastq')
+    elif filename == 'venus':
+        folder = 'Venus Statue'
+        r1_path = os.path.join(DATA_ROOT, folder, 'V_1.fastq')
+        r2_path = os.path.join(DATA_ROOT, folder, 'V_2.fastq')
+    elif filename == 'goldengate':
+        folder = 'Golden gate'
+        r1_path = os.path.join(DATA_ROOT, folder, 'goldengate_1.fastq')
+        r2_path = os.path.join(DATA_ROOT, folder, 'goldengate_2.fastq')
+    else:
+        raise ValueError(f"Unknown dataset: {filename!r}")
+
     print(f"=== DNA Decoding Pipeline: {filename} ===")
-    print(f"  데이터 디렉토리: {os.path.abspath(data_dir)}\n")
+    print(f"  R1: {r1_path}")
+    print(f"  R2: {r2_path}\n")
 
     # =========================================================================
     # Step 0: FASTQ 텍스트 스캔
@@ -1531,29 +1572,7 @@ def main():
     t = time.time()
     print("[Step 0] FASTQ 파일 로드...")
 
-    # 데이터셋별 FASTQ 파일명 매핑
-    FASTQ_FILES = {
-        'Jikji4': [('4_S2_L001_R1_001.fastq', '4_S2_L001_R2_001.fastq')],
-        'Jikji6': [('Jikji6_1.fastq', 'Jikji6_2.fastq')],  # paired
-        'Jikji7': [('jikji-7_S1_L001_R1_001.fastq.gz', 'jikji-7_S1_L001_R2_001.fastq.gz')],
-        'venus': [
-            ('Venus1_R1.fastq', 'Venus1_R2.fastq'),
-            ('Venus2_R1.fastq', 'Venus2_R2.fastq'),
-        ],
-        'goldengate': [
-            ('Goldengate1_R1.fastq', 'Goldengate1_R2.fastq'),
-            ('Goldengate2_R1.fastq', 'Goldengate2_R2.fastq'),
-        ],
-    }
-
-    # 기본 R1/R2 패턴
-    file_pairs = FASTQ_FILES.get(filename, [(f'{filename}_R1.fastq', f'{filename}_R2.fastq')])
-
-    seq = []
-    for fnames in file_pairs:
-        for fname in fnames:
-            fpath = os.path.join(data_dir, fname)
-            seq += read_fastq_file(fpath)
+    seq = read_fastq_file(r1_path) + read_fastq_file(r2_path)
 
     if not seq:
         print("[경고] FASTQ 파일을 찾을 수 없습니다. 테스트 더미 데이터 생성.")
