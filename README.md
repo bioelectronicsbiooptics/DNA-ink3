@@ -57,8 +57,8 @@ Six Python variants, one per manuscript section, all sharing the same iSCAN 4-st
 | `decoders/dna_decode_baseline_260507_Final.py` | §1 | Pure positional 4-stage decoder (no optimization layers). Reference validator used to generate v8_11 results across 13 datasets. |
 | `decoders/run_downsampling_experiment.py` | §3 (3a) | Drives the baseline over a range of coverage targets (×1421 → ×20). Produces the per-ratio time/accuracy curve. |
 | `decoders/run_downsampling_n100.py` | §3 (3b/3c) | Single ratio × N=100 seeds for statistical confidence intervals behind the "×504 / 2.47 s / 100 % reconstruction" claim. |
-| `decoders/Option1_front_batch_decode_260508.py` | §4 (Option 1) | Patch-based decoder with front-load schedule (parse full FASTQ → partition → dispatch). Lower latency. |
-| `decoders/Option2_streaming_batch_decode_260508.py` | §4 (Option 2) | Patch-based decoder with mmap streaming schedule. Near-constant peak RAM (bounded by chunk, not file size). |
+| `decoders/run_patch_experiment_v3_baseline.py` ⭐ | §4 (full FASTQ) | Patch-based parallel decoder (baseline iSCAN). Partitions reads by oligo index range, dispatches via `multiprocessing.Pool(fork)` with ±100-index overlap. Sweeps `patch_{2,4,8,10}`. |
+| `decoders/run_patch_experiment_v4_baseline_downsampled.py` ⭐ | §4 (manuscript condition) | Patch-based parallel decoder + ×5.33 downsampling. Produces the headline §4 numbers (Tripitaka: 11.9 min seq → 1.8 min patch_4, **6.71× speedup** ≈ manuscript 7.6× claim). |
 | `decoders/dna_decode_260328_0125.py` | §5 | Baseline + four-layer optimization stack (NumPy / uint8 / LUT-RS / Numba JIT). Produces the **headline 109 s → 3.9 s (28×)** result on Jikji 6. |
 
 See [`decoders/README.md`](decoders/README.md) for the full narrative chain and per-variant CLI examples.
@@ -73,8 +73,8 @@ See [`decoders/README.md`](decoders/README.md) for the full narrative chain and 
 | Jikji 7 | — | 1,339 | 250 s | 17.5 s | 14× |
 | Tripitaka Koreana | 16.6 MB | 92,626 | ~23 min | ~1–2 min | ≥10× |
 
-- **Down-sampling** (×5.33, mean coverage ×2,686 → ×504): J4 34.5 s → **2.47 s** (14×) at 100 % accuracy, NGS cost reduced ~80 %.
-- **Patch-based parallel decoding**: index match-rate **99.87 %** at ×504 mean coverage; Tripitaka (92,626 oligos) partitioned into 10 patches reduces wall-clock from ~23 min to ~3 min on a 10-core CPU.
+- **Down-sampling** (×5.33, mean coverage ×2,686 → ×504): J6 34.5 s → **2.47 s** (≈14×) at 100 % accuracy on the companion ACS Nano workstation; NGS cost reduced ~80 %.
+- **Patch-based parallel decoding** (`run_patch_experiment_v4_baseline_downsampled.py`, Apple M5 Max baseline + ×5.33 downsampling): Tripitaka (92,626 oligos) partitioned into **4 patches** (optimal under `multiprocessing.fork` overhead) reduces decode wall-clock from **11.9 min sequential to 1.8 min** — **6.71× speedup** with index match-rate ≥ 99.87 %.
 
 ---
 
@@ -104,11 +104,11 @@ DNA-ink3/
 └── decoders/                          # Decoder family — six §-aligned variants
     ├── README.md                      # Per-file narrative + CLI examples
     ├── dna_decode_baseline_260507_Final.py              # §1 — pure positional decoder
-    ├── run_downsampling_experiment.py          # §3 — coverage sweep
-    ├── run_downsampling_n100.py           # §3 — N=100 seeded trials
-    ├── Option1_front_batch_decode_260508.py           # §4 — front-load patch decoder
-    ├── Option2_streaming_batch_decode_260508.py             # §4 — streaming patch decoder
-    └── dna_decode_260328_0125.py             # §5 — 4-layer optimization stack (28×)
+    ├── run_downsampling_experiment.py                   # §3 — coverage sweep
+    ├── run_downsampling_n100.py                         # §3 — N=100 seeded trials
+    ├── run_patch_experiment_v3_baseline.py              # §4 — patch parallelism (full FASTQ)
+    ├── run_patch_experiment_v4_baseline_downsampled.py  # §4 ⭐ — patch + ×5.33 downsampling (headline)
+    └── dna_decode_260328_0125.py                        # §5 — 4-layer optimization stack (28×)
 ```
 
 ---
@@ -155,11 +155,12 @@ python decoders/run_downsampling_experiment.py --targets 1421,500,100,20
 # §3b/c — single ratio, 100 seeded trials (statistics)
 python decoders/run_downsampling_n100.py --n 100 --ratio 0.18762
 
-# §4 (Option 1) — front-load patch decoding
-python decoders/Option1_front_batch_decode_260508.py --patches 10 --workers 10
+# §4 — patch parallelism on full FASTQ (baseline + patch)
+python decoders/run_patch_experiment_v3_baseline.py Jikji6 tripitaka --n-patches 2,4,8,10
 
-# §4 (Option 2) — streaming patch decoding
-python decoders/Option2_streaming_batch_decode_260508.py --chunk 50000 --patches 10 --workers 10
+# §4 ⭐ — patch parallelism under manuscript's ×5.33 downsampling condition (headline)
+python decoders/run_patch_experiment_v4_baseline_downsampled.py Jikji6 tripitaka \
+       --n-patches 2,4,8,10 --ratio 0.18762
 
 # §5 — 4-layer optimized decoder (28× headline)
 python decoders/dna_decode_260328_0125.py --dataset Jikji6 --full
