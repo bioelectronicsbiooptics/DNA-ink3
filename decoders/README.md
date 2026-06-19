@@ -1,6 +1,6 @@
 # `decoders/` — iSCAN decoder family
 
-Six Python decoder variants used to produce the §1 / §3 / §4 / §5 results of the manuscript. All variants share the same iSCAN 4-stage skeleton (primer sorting → KIS detection → index clustering → consensus + RS/XOR); the differences are which **decoding stage** or **experimental knob** each variant exposes.
+Five Python decoder variants used to produce the §1 / §3 / §4 results of the manuscript. All variants share the same iSCAN 4-stage skeleton (primer sorting → KIS detection → index clustering → consensus + RS/XOR); the differences are which **decoding stage** or **experimental knob** each variant exposes.
 
 ---
 
@@ -10,10 +10,9 @@ Six Python decoder variants used to produce the §1 / §3 / §4 / §5 results of
 |---|---|---|
 | **`dna_decode_baseline_260507_Final.py`** | §1 | Pure iSCAN 4-stage decoder (positional decoding only — no optimization layers, no down-sampling, no patching). The validator used to generate the v8_11 results across all 13 datasets. **Reference point** for every other variant. |
 | **`run_downsampling_experiment.py`** | §3 (3a, horizontal axis) | Drives `dna_decode_baseline_260507_Final.py` over a *range* of coverage targets (e.g. ×1421 → ×500 → ×100 → ×20). Random downsampling via reservoir sampling on the combined R1+R2 stream; one trial per target. Produces the **per-ratio time / accuracy curve**. |
-| **`run_downsampling_n100.py`** | §3 (3a/3b/3c, error bars) | Drives `dna_decode_baseline_260507_Final.py` at a *single* operating point (default ratio = 1/5.33 → ×504 coverage) for **N = 100 independent seeds**. Produces the **statistical confidence intervals** underlying the "×504 / 2.47 s / 100 % reconstruction" claim, plus per-trial RS-fail counts and the depth-array dump that feeds Figure 3b. |
+| **`run_downsampling_n100.py`** | §3 (3a/3b/3c, error bars) | Drives `dna_decode_baseline_260507_Final.py` at a *single* operating point (default ratio = 1/5.33 → ×504 coverage) for **N = 100 independent seeds**. Produces the **statistical confidence intervals** underlying the "×504 / 13.3 s / 100 % reconstruction" claim, plus per-trial RS-fail counts and the depth-array dump that feeds Figure 3b. |
 | **`run_patch_experiment_v3_baseline.py`** ⭐ | §4 (full FASTQ) | **Patch-based parallel decoder (baseline iSCAN)** — partitions reads by oligo index range into `n_patches` chunks with ±100-index overlap, dispatches via `multiprocessing.Pool(fork)`, merges per-patch payloads. Sweeps `patch_{2,4,8,10}`. Operates on **full FASTQ** (no downsampling). Use this to characterise patch parallelism in isolation from §3. |
-| **`run_patch_experiment_v4_baseline_downsampled.py`** ⭐ | §4 (manuscript condition) | **Patch-based parallel decoder + ×5.33 downsampling** — same patch architecture as v3 but applies the manuscript's ×5.33 downsampling (`ratio = 0.18762`) BEFORE preprocessing, matching the §4 condition "evaluated under the previously established the lowest downsampled conditions" (V2 L50). Produces the **headline §4 patch-parallelism numbers** (e.g. Tripitaka: 11.9 min sequential → 1.8 min patch_4, **6.71× speedup**, ≈ manuscript 7.6× claim). |
-| **`dna_decode_260328_0125.py`** | §5 | iSCAN baseline + the **four-layer optimization stack** (NumPy whole-array vectorization → uint8 byte-level encoding → lookup-table GF(2⁸) Reed–Solomon → Numba JIT consensus). This file produces the **headline "Jikji 6 109 s → 3.9 s (28×)"** benchmark cited throughout §5 and the conclusion. CPU-only; no GPU dependency. |
+| **`run_patch_experiment_v4_baseline_downsampled.py`** ⭐ | §4 (manuscript condition) | **Patch-based parallel decoder + ×5.33 downsampling** — same patch architecture as v3 but applies the manuscript's ×5.33 downsampling (`ratio = 0.18762`) BEFORE preprocessing, matching the §4 condition "evaluated under the previously established the lowest downsampled conditions". Produces the **headline §4 patch-parallelism numbers** (e.g. Tripitaka: 11.9 min sequential → 1.8 min patch_4, **6.71× speedup**). |
 
 ---
 
@@ -28,14 +27,11 @@ Six Python decoder variants used to produce the §1 / §3 / §4 / §5 results of
         │
 §4   run_patch_experiment_v3_baseline.py             (full FASTQ baseline + patch)
      run_patch_experiment_v4_baseline_downsampled.py  ⭐ manuscript condition
-        │   └── "patch_4 partition is optimal under multiprocessing.fork overhead"
-        │   └── Tripitaka v4: 11.9 min seq → 1.8 min patch_4 (6.71× ≈ manuscript 7.6×)
-        │
-§5   dna_decode_260328_0125.py
-            └── "algorithmic optimization alone reaches 28×" (109 s → 3.9 s, no GPU)
+            └── "patch_4 partition is optimal under multiprocessing.fork overhead"
+            └── Tripitaka v4: 11.9 min seq → 1.8 min patch_4 (6.71×)
 ```
 
-Each §3 / §4 / §5 variant imports the §1 baseline (`dna_decode_baseline_260507_Final.py`) for its core decoding primitives (Consensus / Binarization / RSdecoding), so the four manuscript claims are produced from a single decoding kernel exercised in four different harnesses. `dna_decode_260328_0125.py` replaces that kernel with the four-layer optimized version while preserving identical input / output contracts.
+Each §3 / §4 variant imports the §1 baseline (`dna_decode_baseline_260507_Final.py`) for its core decoding primitives (Consensus / Binarization / RSdecoding), so the manuscript claims are produced from a single decoding kernel exercised in different harnesses.
 
 ---
 
@@ -57,9 +53,6 @@ python decoders/run_patch_experiment_v3_baseline.py Jikji6 tripitaka --n-patches
 # §4 ⭐ — patch parallelism under manuscript's ×5.33 downsampling condition
 python decoders/run_patch_experiment_v4_baseline_downsampled.py Jikji6 tripitaka \
        --n-patches 2,4,8,10 --ratio 0.18762
-
-# §5 — 4-layer optimized decoder (28× headline)
-python decoders/dna_decode_260328_0125.py Jikji6
 ```
 
 Concrete dataset paths and the small reproducible slice for CI live in `../example_data/`.
@@ -88,11 +81,11 @@ The two patch-parallel variants (v3, v4) were benchmarked across the 13 cultural
 |---|---|---|---|
 | sequential | 11.9 min | 16.3 min | 1.00× |
 | patch_2 | 17.7 min | 22.2 min | 0.67× (under-partitioned) |
-| **patch_4** ⭐ | **1.8 min** | **6.2 min** | **6.71×** ← manuscript 7.6× claim |
+| **patch_4** ⭐ | **1.8 min** | **6.2 min** | **6.71×** |
 | patch_8 | 5.1 min | 9.6 min | 2.32× |
 | patch_10 | 4.1 min | 8.6 min | 2.89× (fork overhead) |
 
-→ **patch_4 is the optimal partition** for `multiprocessing.fork`-based patching on M5 Max. The manuscript's "10 patches" claim is sub-optimal under measured fork overhead; the 7.6× speedup is recovered at 4 patches.
+→ **patch_4 is the optimal partition** for `multiprocessing.fork`-based patching on M5 Max.
 
 ### v3 (full FASTQ baseline + patch) — Tripitaka highlight
 
@@ -110,7 +103,6 @@ Detailed per-dataset JSON results are produced under `patch_baseline_v3_out/` an
 
 ## What is *not* in this repository
 
-- **GPU stretch variant** (`dna_decode_260508_OptB_GPU_NullOpt_EvertOpt.py`) — Apple Silicon CPU+GPU heterogeneous prototype, withheld until the V15 G-series end-to-end timings are finalised. The §5 manuscript text describes the algorithmic stack only; GPU is reported as a "potential additional layer" but not relied upon for the headline 28× number.
 - **Figure-generation code** (SVG fillers, Excel aggregators) — intentionally excluded: this repository carries only the decoding pipeline, not the manuscript figure factory.
 - **MATLAB reference pipeline** — the v240108 reference decoder used to establish numerical parity is hosted with the companion wet-lab paper at [bioelectronicsbiooptics/3D-Culture-Heritage](https://github.com/bioelectronicsbiooptics/3D-Culture-Heritage); this repository carries the Python iSCAN3 stack only.
 - **Raw sequencing data** — deposited at NCBI BioProject **PRJNA1091804**, not redistributed here.

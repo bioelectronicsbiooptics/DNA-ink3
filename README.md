@@ -1,9 +1,9 @@
-# DNA-ink3 — iSCAN Positional Decoding & Optimization Stack
+# DNA-ink3 — iSCAN Positional Decoding Pipeline
 
 Implementation of the paper:
-**"High data-density, high decoding-speed, and high decoding-accuracy DNA data ink for digital preservation — iSCAN3 optimization stack"** *(in preparation, target: Briefings in Bioinformatics, 2026)*
+**"High Data-Density, High Decoding-Speed, and High Decoding-Accuracy DNA Data Ink for Digital Preservation: A Position-Indexed iSCAN Decoding Pipeline with Cross-Method Generalization"** *(in preparation, target: Briefings in Bioinformatics, 2026)*
 
-A position-based DNA data-storage decoder that replaces *de novo* sequence alignment with a localized index-scan, combined with a four-layer algorithmic optimization stack (NumPy vectorization → uint8 byte-level encoding → lookup-table GF(2⁸) Reed–Solomon → Numba JIT consensus). Achieves **28× end-to-end speed-up** over the MATLAB reference on the Jikji 6 payload (109 s → 3.9 s) while preserving 100 % bit-for-bit reconstruction.
+A position-based DNA data-storage decoder that replaces *de novo* sequence alignment with a localized index-scan, combined with ×5.33 downsampling and patch-based parallelization. The architectural transferability of the iSCAN decoding pipeline is demonstrated by re-implementing seven representative DNA storage encoding methods within a single runtime, achieving an average **2.69-fold** cross-method end-to-end speedup (range **1.07× to 19.9×**) while preserving 100 % bit-for-bit reconstruction.
 
 ---
 
@@ -50,16 +50,15 @@ A position-based DNA data-storage decoder that replaces *de novo* sequence align
 
 ## Decoder family (`decoders/`)
 
-Six Python variants, one per manuscript section, all sharing the same iSCAN 4-stage skeleton:
+Five Python variants, one per manuscript section, all sharing the same iSCAN 4-stage skeleton:
 
 | File | § | Role |
 |---|---|---|
-| `decoders/dna_decode_baseline_260507_Final.py` | §1 | Pure positional 4-stage decoder (no optimization layers). Reference validator used to generate v8_11 results across 13 datasets. |
+| `decoders/dna_decode_baseline_260507_Final.py` | §1 | Pure positional 4-stage decoder. Reference validator used to generate the headline results across 13 datasets. |
 | `decoders/run_downsampling_experiment.py` | §3 (3a) | Drives the baseline over a range of coverage targets (×1421 → ×20). Produces the per-ratio time/accuracy curve. |
-| `decoders/run_downsampling_n100.py` | §3 (3b/3c) | Single ratio × N=100 seeds for statistical confidence intervals behind the "×504 / 2.47 s / 100 % reconstruction" claim. |
+| `decoders/run_downsampling_n100.py` | §3 (3b/3c) | Single ratio × N=100 seeds for statistical confidence intervals behind the "×504 / 13.3 s / 100 % reconstruction" claim. |
 | `decoders/run_patch_experiment_v3_baseline.py` ⭐ | §4 (full FASTQ) | Patch-based parallel decoder (baseline iSCAN). Partitions reads by oligo index range, dispatches via `multiprocessing.Pool(fork)` with ±100-index overlap. Sweeps `patch_{2,4,8,10}`. |
-| `decoders/run_patch_experiment_v4_baseline_downsampled.py` ⭐ | §4 (manuscript condition) | Patch-based parallel decoder + ×5.33 downsampling. Produces the headline §4 numbers (Tripitaka: 11.9 min seq → 1.8 min patch_4, **6.71× speedup** ≈ manuscript 7.6× claim). |
-| `decoders/dna_decode_260328_0125.py` | §5 | Baseline + four-layer optimization stack (NumPy / uint8 / LUT-RS / Numba JIT). Produces the **headline 109 s → 3.9 s (28×)** result on Jikji 6. |
+| `decoders/run_patch_experiment_v4_baseline_downsampled.py` ⭐ | §4 (manuscript condition) | Patch-based parallel decoder + ×5.33 downsampling. Produces the headline §4 numbers (Tripitaka: 11.9 min seq → 1.8 min patch_4, **6.71× speedup**). |
 
 See [`decoders/README.md`](decoders/README.md) for the full narrative chain and per-variant CLI examples.
 
@@ -67,14 +66,14 @@ See [`decoders/README.md`](decoders/README.md) for the full narrative chain and 
 
 ## Headline benchmarks
 
-| Dataset | Payload | Oligos | MATLAB reference | iSCAN3 (4-layer) | Speed-up |
-|---|---|---|---|---|---|
-| Jikji 6 | 0.2 MB | 1,018 | 109 s | **3.9 s** | **28×** |
-| Jikji 7 | — | 1,339 | 250 s | 17.5 s | 14× |
-| Tripitaka Koreana | 16.6 MB | 92,626 | ~23 min | ~1–2 min | ≥10× |
+| Dataset | Payload | Oligos | iSCAN baseline (Apple M5 Max) | Speed-up |
+|---|---|---|---|---|
+| Jikji 6 | 0.2 MB | 1,018 | **130 s** end-to-end | **166×** over ~ 6 h alignment baseline |
+| Tripitaka Koreana | 16.6 MB | 92,626 | ~94 min baseline | reduced to ~6.2 min via §3 + §4 (15×) |
 
-- **Down-sampling** (×5.33, mean coverage ×2,686 → ×504): J6 34.5 s → **2.47 s** (≈14×) at 100 % accuracy on the companion ACS Nano workstation; NGS cost reduced ~80 %.
+- **Down-sampling** (×5.33, mean coverage ×2,686 → ×504): J6 130 s → **13.3 s** on Apple M5 Max (9.8× wall-clock reduction); NGS cost reduced ~80 % at 100 % accuracy.
 - **Patch-based parallel decoding** (`run_patch_experiment_v4_baseline_downsampled.py`, Apple M5 Max baseline + ×5.33 downsampling): Tripitaka (92,626 oligos) partitioned into **4 patches** (optimal under `multiprocessing.fork` overhead) reduces decode wall-clock from **11.9 min sequential to 1.8 min** — **6.71× speedup** with index match-rate ≥ 99.87 %.
+- **Cross-method generalization** (§5): substituting the reference decoder with the iSCAN optimization stack across six fully benchmarked external decoders (Yin-Yang Code variants, SPIDER-WEB, DNA Fountain, Chamaeleo, DNA-Aeon, Composite Hedges Nanopores) delivers an average **2.69-fold** end-to-end speedup (range 1.07× to 19.9×) while preserving 100 % reconstruction fidelity verified by per-method MD5 round-trip.
 
 ---
 
@@ -101,14 +100,13 @@ DNA-ink3/
 ├── LICENSE                            # MIT
 ├── .gitignore
 │
-└── decoders/                          # Decoder family — six §-aligned variants
+└── decoders/                          # Decoder family — §-aligned variants
     ├── README.md                      # Per-file narrative + CLI examples
     ├── dna_decode_baseline_260507_Final.py              # §1 — pure positional decoder
     ├── run_downsampling_experiment.py                   # §3 — coverage sweep
     ├── run_downsampling_n100.py                         # §3 — N=100 seeded trials
     ├── run_patch_experiment_v3_baseline.py              # §4 — patch parallelism (full FASTQ)
-    ├── run_patch_experiment_v4_baseline_downsampled.py  # §4 ⭐ — patch + ×5.33 downsampling (headline)
-    └── dna_decode_260328_0125.py                        # §5 — 4-layer optimization stack (28×)
+    └── run_patch_experiment_v4_baseline_downsampled.py  # §4 ⭐ — patch + ×5.33 downsampling (headline)
 ```
 
 ---
@@ -122,11 +120,11 @@ Python dependencies:
 
 | Package | Min version | Role |
 |---|---|---|
-| numpy | 2.3 | Whole-array vectorization (Layer 1) |
+| numpy | 2.3 | Whole-array vectorization |
 | pandas | 2.3 | Per-dataset aggregation tables |
 | biopython | 1.85 | FASTQ I/O |
-| reedsolo | 1.7 | GF(2⁸) lookup-table Reed–Solomon (Layer 3) |
-| numba | 0.60 | JIT consensus loop (Layer 4) |
+| reedsolo | 1.7 | GF(2⁸) lookup-table Reed–Solomon |
+| numba | 0.60 | JIT consensus loop |
 | scipy | 1.16 | Statistical helpers |
 | trimesh | 4.11 | STL re-export and mesh diff |
 
@@ -139,7 +137,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install numpy pandas biopython reedsolo numba scipy trimesh
 ```
 
-The first run of `decoders/dna_decode_260328_0125.py` triggers a one-time Numba JIT compile (≈ 8 s) and a 64 KB GF(2⁸) lookup-table precompute (instantaneous); both are cached on disk and re-used on every subsequent run.
+The first run of the decoders triggers a one-time Numba JIT compile (≈ 8 s) and a 64 KB GF(2⁸) lookup-table precompute (instantaneous); both are cached on disk and re-used on every subsequent run.
 
 ---
 
@@ -161,9 +159,6 @@ python decoders/run_patch_experiment_v3_baseline.py Jikji6 tripitaka --n-patches
 # §4 ⭐ — patch parallelism under manuscript's ×5.33 downsampling condition (headline)
 python decoders/run_patch_experiment_v4_baseline_downsampled.py Jikji6 tripitaka \
        --n-patches 2,4,8,10 --ratio 0.18762
-
-# §5 — 4-layer optimized decoder (28× headline)
-python decoders/dna_decode_260328_0125.py --dataset Jikji6 --full
 ```
 
 See [`decoders/README.md`](decoders/README.md) for the full per-variant narrative.
